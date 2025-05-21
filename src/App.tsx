@@ -1,13 +1,14 @@
-import "./App.css";
+import { BrowserRouter, Route, Routes } from "react-router";
+import { Home } from "./pages";
+import Login from "./pages/Login";
 
 function App() {
   return (
-    <div className="App">
-      <header className="App-header" bg-color="primary">
-        <h1>My Vocabulary App</h1>
-        <p>Welcome to the My Vocabulary App!</p>
-      </header>
-    </div>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Login />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
 
