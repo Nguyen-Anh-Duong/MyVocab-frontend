@@ -1,5 +1,6 @@
 import { Book } from "lucide-react";
 import LoginForm from "@/components/LoginForm";
+import RegisterForm from "@/components/RegisterForm";
 import SocialLoginButtons from "@/components/ui/social-login-buttons";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -30,7 +31,21 @@ function AuthLayout() {
               <LoginForm />
             </div>
           </TabsContent>
-          <TabsContent value="account">Make changes to your account here.</TabsContent>
+          <TabsContent value="register">
+            <div className="rounded p-[27px] outline">
+              <h2 className="text-xl font-semibold tracking-tight">Create an account</h2>
+              <p className="text-muted-foreground mt-[4.5px] text-sm">Enter your information to create an account</p>
+              <div className="mt-[27px]">
+                <SocialLoginButtons />
+              </div>
+              <div className="flex items-center justify-center py-4">
+                <hr className="flex-grow border-gray-300" />
+                <span className="text-muted-foreground px-2 text-[13px] uppercase">Or continue with</span>
+                <hr className="flex-grow border-gray-300" />
+              </div>
+              <RegisterForm />
+            </div>
+          </TabsContent>
         </Tabs>
       </div>
     </div>
