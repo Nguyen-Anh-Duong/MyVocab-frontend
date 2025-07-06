@@ -145,6 +145,50 @@ class AdminService {
     }
   }
 
+  // Get vocabulary details
+  async getVocabularyById(vocabularyId: string): Promise<AdminVocabulary> {
+    try {
+      console.log("Getting vocabulary details:", vocabularyId);
+      const response = await httpClient.get(`${API_CONFIG.ENDPOINTS.VOCABULARIES}/${vocabularyId}`);
+
+      console.log("Vocabulary details response:", response);
+
+      // Handle different response formats
+      if (response.data?.data) {
+        return response.data.data;
+      } else if (response.data?.vocabulary) {
+        return response.data.vocabulary;
+      } else {
+        return response.data;
+      }
+    } catch (error: any) {
+      console.error("Failed to get vocabulary details:", error);
+      throw new Error(error.response?.data?.message || "Failed to get vocabulary details");
+    }
+  }
+
+  // Update vocabulary
+  async updateVocabulary(vocabularyId: string, vocabularyData: Partial<AdminVocabulary>): Promise<AdminVocabulary> {
+    try {
+      console.log("Updating vocabulary:", { vocabularyId, vocabularyData });
+      const response = await httpClient.patch(`${API_CONFIG.ENDPOINTS.VOCABULARIES}/${vocabularyId}`, vocabularyData);
+
+      console.log("Update vocabulary response:", response);
+
+      // Handle different response formats
+      if (response.data?.data) {
+        return response.data.data;
+      } else if (response.data?.vocabulary) {
+        return response.data.vocabulary;
+      } else {
+        return response.data;
+      }
+    } catch (error: any) {
+      console.error("Failed to update vocabulary:", error);
+      throw new Error(error.response?.data?.message || "Failed to update vocabulary");
+    }
+  }
+
   // Category Management
   async getAllCategories(): Promise<AdminCategory[]> {
     try {

@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import adminService from "@/services/adminService";
 import { AlertCircle, Edit, Eye, FileText, Filter, Search, Trash2 } from "lucide-react";
+import VocabularyDetailModal from "@/components/VocabularyDetailModal";
+import VocabularyEditModal from "@/components/VocabularyEditModal";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -14,6 +16,11 @@ export default function AdminVocabularies() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+
+  // Modal states
+  const [viewModalOpen, setViewModalOpen] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [selectedVocabularyId, setSelectedVocabularyId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -76,6 +83,32 @@ export default function AdminVocabularies() {
     }
 
     setFilteredVocabularies(filtered);
+  };
+
+  // Modal handlers
+  const handleViewVocabulary = (vocabularyId: string) => {
+    setSelectedVocabularyId(vocabularyId);
+    setViewModalOpen(true);
+  };
+
+  const handleEditVocabulary = (vocabularyId: string) => {
+    setSelectedVocabularyId(vocabularyId);
+    setEditModalOpen(true);
+  };
+
+  const handleCloseModals = () => {
+    setViewModalOpen(false);
+    setEditModalOpen(false);
+    setSelectedVocabularyId(null);
+  };
+
+  const handleVocabularyUpdated = (updatedVocabulary: any) => {
+    // Update vocabulary in local state
+    setVocabularies((prev) =>
+      prev.map((vocab) =>
+        (vocab.id || vocab._id) === (updatedVocabulary.id || updatedVocabulary._id) ? updatedVocabulary : vocab
+      )
+    );
   };
 
   const handleDeleteVocabulary = async (vocabId: string) => {
@@ -281,10 +314,20 @@ export default function AdminVocabularies() {
                     </div>
 
                     <div className="ml-4 flex items-center gap-2">
-                      <Button variant="ghost" size="sm" title="View details">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        title="View details"
+                        onClick={() => handleViewVocabulary(vocab.id || vocab._id)}
+                      >
                         <Eye className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="sm" title="Edit vocabulary">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        title="Edit vocabulary"
+                        onClick={() => handleEditVocabulary(vocab.id || vocab._id)}
+                      >
                         <Edit className="h-4 w-4" />
                       </Button>
                       <Button
@@ -309,6 +352,21 @@ export default function AdminVocabularies() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Modals */}
+      <VocabularyDetailModal
+        vocabularyId={selectedVocabularyId}
+        isOpen={viewModalOpen}
+        onClose={handleCloseModals}
+        onEdit={handleEditVocabulary}
+      />
+
+      <VocabularyEditModal
+        vocabularyId={selectedVocabularyId}
+        isOpen={editModalOpen}
+        onClose={handleCloseModals}
+        onSave={handleVocabularyUpdated}
+      />
     </div>
   );
 }
