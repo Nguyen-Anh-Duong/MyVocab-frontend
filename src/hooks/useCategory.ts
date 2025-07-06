@@ -11,6 +11,7 @@ interface UseCategoryReturn {
 
   // Actions
   fetchCategories: () => Promise<void>;
+  fetchCategoriesOnly: () => Promise<void>;
   fetchCategory: (id: string) => Promise<void>;
   createCategory: (data: CreateCategoryRequest) => Promise<void>;
   updateCategory: (id: string, data: UpdateCategoryRequest) => Promise<void>;
@@ -82,6 +83,20 @@ export const useCategory = (): UseCategoryReturn => {
           vocabulariesByCategory
         });
       }
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchCategoriesOnly = async (): Promise<void> => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const categoriesData = await categoryService.getAllCategories();
+      setCategories(categoriesData);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -272,6 +287,7 @@ export const useCategory = (): UseCategoryReturn => {
     error,
     stats,
     fetchCategories,
+    fetchCategoriesOnly,
     fetchCategory,
     createCategory,
     updateCategory,

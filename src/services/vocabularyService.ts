@@ -2,6 +2,7 @@ import { API_CONFIG } from "@/config/api";
 import type { ApiResponse } from "@/types/auth";
 import type {
   CreateVocabularyRequest,
+  PartOfSpeech,
   SearchVocabularyRequest,
   UpdateVocabularyRequest,
   Vocabulary,
@@ -9,6 +10,27 @@ import type {
 } from "@/types/vocabulary";
 import httpClient from "@/lib/httpClient";
 import categoryService from "./categoryService";
+
+interface TextToVocabularyRequest {
+  text: string;
+}
+
+interface TextToVocabularyResponse {
+  word: string;
+  phonetic: {
+    text: string;
+    audio: string;
+  };
+  meanings: Array<{
+    meaning: string;
+    context: string;
+    partOfSpeech: string;
+    examples: Array<{
+      sentence: string;
+      translation: string;
+    }>;
+  }>;
+}
 
 class VocabularyService {
   // Helper method to map category IDs to names
@@ -38,6 +60,32 @@ class VocabularyService {
       console.warn("Failed to map category IDs to names:", error);
       // Return original data if mapping fails, ensure it's an array
       return Array.isArray(vocabularies) ? vocabularies : [];
+    }
+  }
+
+  async parseTextToVocabulary(text: string): Promise<CreateVocabularyRequest> {
+    try {
+      const response: ApiResponse<TextToVocabularyResponse> = await httpClient.post(
+        API_CONFIG.ENDPOINTS.NLP.TEXT_TO_VOCABULARY,
+        { text }
+      );
+
+      // Transform the response to CreateVocabularyRequest format
+      const vocabularyData: CreateVocabularyRequest = {
+        word: response.data.word,
+        phonetic: response.data.phonetic,
+        meanings: response.data.meanings.map((meaning) => ({
+          ...meaning,
+          partOfSpeech: meaning.partOfSpeech as PartOfSpeech,
+          examples: meaning.examples || [],
+          commonPhrases: []
+        })),
+        categories: []
+      };
+
+      return vocabularyData;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.message || "Failed to parse text to vocabulary");
     }
   }
 

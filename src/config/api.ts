@@ -15,7 +15,10 @@ export const API_CONFIG = {
       ME: "/users/me"
     },
     VOCABULARIES: "/vocabularies",
-    CATEGORIES: "/categories"
+    CATEGORIES: "/categories",
+    NLP: {
+      TEXT_TO_VOCABULARY: "/nlp/text-to-vocabulary"
+    }
   }
 };
 

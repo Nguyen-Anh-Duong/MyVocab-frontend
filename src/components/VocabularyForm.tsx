@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
+import vocabularyService from "@/services/vocabularyService";
 import { type CreateVocabularyRequest, PartOfSpeech, type Vocabulary } from "@/types/vocabulary";
-import { Plus, Trash2, X } from "lucide-react";
+import { Edit3, FileText, Plus, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useCategory } from "@/hooks/useCategory";
 
@@ -39,7 +41,7 @@ export default function VocabularyForm({
   mode = "add",
   hideTitle = false
 }: VocabularyFormProps) {
-  const { categories, fetchCategories } = useCategory();
+  const { categories, fetchCategoriesOnly } = useCategory();
 
   const [formData, setFormData] = useState<CreateVocabularyRequest>({
     word: "",
@@ -60,10 +62,13 @@ export default function VocabularyForm({
   });
 
   const [newCategory, setNewCategory] = useState("");
+  const [inputMode, setInputMode] = useState<"manual" | "text">("manual");
+  const [textInput, setTextInput] = useState("");
+  const [isParsingText, setIsParsingText] = useState(false);
 
-  // Load available categories on mount
+  // Load available categories on mount (optimized - only categories, no stats)
   useEffect(() => {
-    fetchCategories();
+    fetchCategoriesOnly();
   }, []);
 
   // Initialize form with data when editing
@@ -98,6 +103,48 @@ export default function VocabularyForm({
       });
     }
   }, [initialData, mode]);
+
+  const handleParseText = async () => {
+    if (!textInput.trim()) {
+      alert("⚠️ Please enter some text to parse");
+      return;
+    }
+
+    setIsParsingText(true);
+    try {
+      const parsedData = await vocabularyService.parseTextToVocabulary(textInput);
+      setFormData({
+        ...parsedData,
+        categories: formData.categories || [] // Keep existing categories
+      });
+      setInputMode("manual"); // Switch to manual mode to show parsed data
+    } catch (error: any) {
+      console.error("Failed to parse text:", error);
+      alert(`❌ Failed to parse text: ${error.message}`);
+    } finally {
+      setIsParsingText(false);
+    }
+  };
+
+  const handleClearForm = () => {
+    if (confirm("Are you sure you want to clear all form data?")) {
+      setFormData({
+        word: "",
+        phonetic: { text: "", audio: "" },
+        meanings: [
+          {
+            partOfSpeech: PartOfSpeech.Noun,
+            meaning: "",
+            context: "",
+            examples: [{ sentence: "", translation: "" }],
+            commonPhrases: []
+          }
+        ],
+        categories: []
+      });
+      setTextInput("");
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -279,348 +326,415 @@ export default function VocabularyForm({
         </CardHeader>
       )}
       <CardContent className={hideTitle ? "pt-6" : ""}>
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Word and Phonetic */}
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        {/* Input Mode Tabs */}
+        <Tabs value={inputMode} onValueChange={(value) => setInputMode(value as "manual" | "text")}>
+          <TabsList className="mb-6 grid w-full grid-cols-2">
+            <TabsTrigger value="manual" className="flex items-center gap-2">
+              <Edit3 className="h-4 w-4" />
+              Manual Input
+            </TabsTrigger>
+            <TabsTrigger value="text" className="flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              Parse from Text
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="text" className="space-y-4">
             <div>
-              <Label htmlFor="word">Word *</Label>
-              <Input
-                id="word"
-                value={formData.word}
-                onChange={(e) => setFormData({ ...formData, word: e.target.value })}
-                placeholder="Enter the word"
-                required
+              <Label htmlFor="textInput">Paste your vocabulary text</Label>
+              <Textarea
+                id="textInput"
+                value={textInput}
+                onChange={(e) => setTextInput(e.target.value)}
+                placeholder="Paste your vocabulary text here... 
+
+Example:
+(v) /ədˈhɪr/
+1. Dính chặt, bám chặt vào (vật lý)
+The glue helps the paper adhere to the wall.
+(Keo giúp tờ giấy dính chặt vào tường.)
+2. Tuân thủ, làm theo (quy tắc, luật lệ, nguyên tắc)
+You must adhere to the rules.
+(Bạn phải tuân thủ các quy tắc.)"
+                rows={10}
+                className="min-h-[200px]"
+                disabled={isParsingText}
               />
             </div>
-            <div>
-              <Label htmlFor="phonetic">Phonetic</Label>
-              <Input
-                id="phonetic"
-                value={formData.phonetic?.text || ""}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    phonetic: { ...formData.phonetic, text: e.target.value }
-                  })
-                }
-                placeholder="/fəˈnetɪk/"
-              />
-            </div>
-          </div>
-
-          {/* Audio URL */}
-          <div>
-            <Label htmlFor="audio">Audio URL (optional)</Label>
-            <Input
-              id="audio"
-              value={formData.phonetic?.audio || ""}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  phonetic: { ...formData.phonetic, audio: e.target.value }
-                })
-              }
-              placeholder="https://example.com/audio.mp3"
-            />
-          </div>
-
-          {/* Meanings */}
-          <div>
-            <div className="mb-4 flex items-center justify-between">
-              <Label className="text-lg font-semibold">Meanings *</Label>
-              <Button type="button" onClick={addMeaning} variant="outline" size="sm">
-                <Plus className="mr-2 h-4 w-4" />
-                Add Meaning
+            <div className="flex gap-2">
+              <Button onClick={handleParseText} disabled={isParsingText || !textInput.trim()} className="flex-1">
+                {isParsingText ? (
+                  <>
+                    <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-white"></div>
+                    Parsing...
+                  </>
+                ) : (
+                  "Parse Text to Vocabulary"
+                )}
+              </Button>
+              <Button onClick={handleClearForm} variant="outline" className="flex-1" disabled={isParsingText}>
+                Clear All
               </Button>
             </div>
+            {formData.word && !isParsingText && (
+              <div className="mt-4 rounded-lg border border-green-200 bg-green-50 p-4">
+                <p className="text-sm text-green-700">
+                  ✅ Text parsed successfully! Switch to "Manual Input" tab to review and edit the vocabulary data.
+                </p>
+              </div>
+            )}
+          </TabsContent>
 
-            {formData.meanings.map((meaning, meaningIndex) => (
-              <div key={meaningIndex} className="mb-4 space-y-4 rounded-lg border p-4">
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">Meaning {meaningIndex + 1}</span>
-                  {formData.meanings.length > 1 && (
-                    <Button
-                      type="button"
-                      onClick={() => removeMeaning(meaningIndex)}
-                      variant="ghost"
-                      size="sm"
-                      className="text-red-500 hover:text-red-700"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <div>
-                    <Label>Part of Speech *</Label>
-                    <Select
-                      key={`${meaningIndex}-${meaning.partOfSpeech || "none"}`}
-                      value={meaning.partOfSpeech}
-                      onValueChange={(value) => updateMeaning(meaningIndex, "partOfSpeech", value as PartOfSpeech)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select part of speech" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {partOfSpeechOptions.map((pos) => (
-                          <SelectItem key={pos} value={pos}>
-                            {pos}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Context (optional)</Label>
-                    <Input
-                      value={meaning.context || ""}
-                      onChange={(e) => updateMeaning(meaningIndex, "context", e.target.value)}
-                      placeholder="Context or situation"
-                    />
-                  </div>
-                </div>
-
+          <TabsContent value="manual">
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Word and Phonetic */}
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div>
-                  <Label>Definition *</Label>
-                  <Textarea
-                    value={meaning.meaning}
-                    onChange={(e) => updateMeaning(meaningIndex, "meaning", e.target.value)}
-                    placeholder="Enter the meaning/definition"
+                  <Label htmlFor="word">Word *</Label>
+                  <Input
+                    id="word"
+                    value={formData.word}
+                    onChange={(e) => setFormData({ ...formData, word: e.target.value })}
+                    placeholder="Enter the word"
                     required
                   />
                 </div>
-
-                {/* Examples */}
                 <div>
-                  <div className="mb-2 flex items-center justify-between">
-                    <Label>
-                      Examples <span className="text-xs text-gray-500">(empty entries will be auto-removed)</span>
-                    </Label>
-                    <Button type="button" onClick={() => addExample(meaningIndex)} variant="outline" size="sm">
-                      <Plus className="mr-2 h-4 w-4" />
-                      Add Example
-                    </Button>
-                  </div>
+                  <Label htmlFor="phonetic">Phonetic</Label>
+                  <Input
+                    id="phonetic"
+                    value={formData.phonetic?.text || ""}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        phonetic: { ...formData.phonetic, text: e.target.value }
+                      })
+                    }
+                    placeholder="/fəˈnetɪk/"
+                  />
+                </div>
+              </div>
 
-                  {meaning.examples?.map((example, exampleIndex) => (
-                    <div key={exampleIndex} className="mb-2 grid grid-cols-1 gap-2 md:grid-cols-2">
+              {/* Audio URL */}
+              <div>
+                <Label htmlFor="audio">Audio URL (optional)</Label>
+                <Input
+                  id="audio"
+                  value={formData.phonetic?.audio || ""}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      phonetic: { ...formData.phonetic, audio: e.target.value }
+                    })
+                  }
+                  placeholder="https://example.com/audio.mp3"
+                />
+              </div>
+
+              {/* Meanings */}
+              <div>
+                <div className="mb-4 flex items-center justify-between">
+                  <Label className="text-lg font-semibold">Meanings *</Label>
+                  <Button type="button" onClick={addMeaning} variant="outline" size="sm">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Meaning
+                  </Button>
+                </div>
+
+                {formData.meanings.map((meaning, meaningIndex) => (
+                  <div key={meaningIndex} className="mb-4 space-y-4 rounded-lg border p-4">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">Meaning {meaningIndex + 1}</span>
+                      {formData.meanings.length > 1 && (
+                        <Button
+                          type="button"
+                          onClick={() => removeMeaning(meaningIndex)}
+                          variant="ghost"
+                          size="sm"
+                          className="text-red-500 hover:text-red-700"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                       <div>
-                        <Input
-                          value={example.sentence}
-                          onChange={(e) => updateExample(meaningIndex, exampleIndex, "sentence", e.target.value)}
-                          onBlur={() => cleanupEmptyExamples(meaningIndex)}
-                          placeholder="Example sentence"
-                        />
+                        <Label>Part of Speech *</Label>
+                        <Select
+                          key={`${meaningIndex}-${meaning.partOfSpeech || "none"}`}
+                          value={meaning.partOfSpeech}
+                          onValueChange={(value) => updateMeaning(meaningIndex, "partOfSpeech", value as PartOfSpeech)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select part of speech" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {partOfSpeechOptions.map((pos) => (
+                              <SelectItem key={pos} value={pos}>
+                                {pos}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
-                      <div className="flex gap-2">
+                      <div>
+                        <Label>Context (optional)</Label>
                         <Input
-                          value={example.translation || ""}
-                          onChange={(e) => updateExample(meaningIndex, exampleIndex, "translation", e.target.value)}
-                          onBlur={() => cleanupEmptyExamples(meaningIndex)}
-                          placeholder="Translation (optional)"
+                          value={meaning.context || ""}
+                          onChange={(e) => updateMeaning(meaningIndex, "context", e.target.value)}
+                          placeholder="Context or situation"
                         />
-                        {meaning.examples && meaning.examples.length > 1 && (
-                          <Button
-                            type="button"
-                            onClick={() => removeExample(meaningIndex, exampleIndex)}
-                            variant="ghost"
-                            size="sm"
-                            className="text-red-500 hover:text-red-700"
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        )}
                       </div>
                     </div>
-                  ))}
-                </div>
 
-                {/* Common Phrases */}
-                <div>
-                  <div className="mb-2 flex items-center justify-between">
-                    <Label>
-                      Common Phrases <span className="text-xs text-gray-500">(empty entries will be auto-removed)</span>
-                    </Label>
-                    <Button type="button" onClick={() => addCommonPhrase(meaningIndex)} variant="outline" size="sm">
-                      <Plus className="mr-2 h-4 w-4" />
-                      Add Phrase
-                    </Button>
-                  </div>
+                    <div>
+                      <Label>Definition *</Label>
+                      <Textarea
+                        value={meaning.meaning}
+                        onChange={(e) => updateMeaning(meaningIndex, "meaning", e.target.value)}
+                        placeholder="Enter the meaning/definition"
+                        required
+                      />
+                    </div>
 
-                  {meaning.commonPhrases &&
-                    meaning.commonPhrases.length > 0 &&
-                    meaning.commonPhrases.map((phrase, phraseIndex) => (
-                      <div key={phraseIndex} className="mb-2 grid grid-cols-1 gap-2 md:grid-cols-2">
-                        <div>
-                          <Input
-                            value={phrase.phrase}
-                            onChange={(e) => updateCommonPhrase(meaningIndex, phraseIndex, "phrase", e.target.value)}
-                            onBlur={() => cleanupEmptyCommonPhrases(meaningIndex)}
-                            placeholder="Common phrase"
-                          />
-                        </div>
-                        <div className="flex gap-2">
-                          <Input
-                            value={phrase.meaning || ""}
-                            onChange={(e) => updateCommonPhrase(meaningIndex, phraseIndex, "meaning", e.target.value)}
-                            onBlur={() => cleanupEmptyCommonPhrases(meaningIndex)}
-                            placeholder="Phrase meaning (optional)"
-                          />
-                          {meaning.commonPhrases && meaning.commonPhrases.length > 1 && (
-                            <Button
-                              type="button"
-                              onClick={() => removeCommonPhrase(meaningIndex, phraseIndex)}
-                              variant="ghost"
-                              size="sm"
-                              className="text-red-500 hover:text-red-700"
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </div>
+                    {/* Examples */}
+                    <div>
+                      <div className="mb-2 flex items-center justify-between">
+                        <Label>
+                          Examples <span className="text-xs text-gray-500">(empty entries will be auto-removed)</span>
+                        </Label>
+                        <Button type="button" onClick={() => addExample(meaningIndex)} variant="outline" size="sm">
+                          <Plus className="mr-2 h-4 w-4" />
+                          Add Example
+                        </Button>
                       </div>
-                    ))}
-                </div>
+
+                      {meaning.examples?.map((example, exampleIndex) => (
+                        <div key={exampleIndex} className="mb-2 grid grid-cols-1 gap-2 md:grid-cols-2">
+                          <div>
+                            <Input
+                              value={example.sentence}
+                              onChange={(e) => updateExample(meaningIndex, exampleIndex, "sentence", e.target.value)}
+                              onBlur={() => cleanupEmptyExamples(meaningIndex)}
+                              placeholder="Example sentence"
+                            />
+                          </div>
+                          <div className="flex gap-2">
+                            <Input
+                              value={example.translation || ""}
+                              onChange={(e) => updateExample(meaningIndex, exampleIndex, "translation", e.target.value)}
+                              onBlur={() => cleanupEmptyExamples(meaningIndex)}
+                              placeholder="Translation (optional)"
+                            />
+                            {meaning.examples && meaning.examples.length > 1 && (
+                              <Button
+                                type="button"
+                                onClick={() => removeExample(meaningIndex, exampleIndex)}
+                                variant="ghost"
+                                size="sm"
+                                className="text-red-500 hover:text-red-700"
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Common Phrases */}
+                    <div>
+                      <div className="mb-2 flex items-center justify-between">
+                        <Label>
+                          Common Phrases{" "}
+                          <span className="text-xs text-gray-500">(empty entries will be auto-removed)</span>
+                        </Label>
+                        <Button type="button" onClick={() => addCommonPhrase(meaningIndex)} variant="outline" size="sm">
+                          <Plus className="mr-2 h-4 w-4" />
+                          Add Phrase
+                        </Button>
+                      </div>
+
+                      {meaning.commonPhrases &&
+                        meaning.commonPhrases.length > 0 &&
+                        meaning.commonPhrases.map((phrase, phraseIndex) => (
+                          <div key={phraseIndex} className="mb-2 grid grid-cols-1 gap-2 md:grid-cols-2">
+                            <div>
+                              <Input
+                                value={phrase.phrase}
+                                onChange={(e) =>
+                                  updateCommonPhrase(meaningIndex, phraseIndex, "phrase", e.target.value)
+                                }
+                                onBlur={() => cleanupEmptyCommonPhrases(meaningIndex)}
+                                placeholder="Common phrase"
+                              />
+                            </div>
+                            <div className="flex gap-2">
+                              <Input
+                                value={phrase.meaning || ""}
+                                onChange={(e) =>
+                                  updateCommonPhrase(meaningIndex, phraseIndex, "meaning", e.target.value)
+                                }
+                                onBlur={() => cleanupEmptyCommonPhrases(meaningIndex)}
+                                placeholder="Phrase meaning (optional)"
+                              />
+                              {meaning.commonPhrases && meaning.commonPhrases.length > 1 && (
+                                <Button
+                                  type="button"
+                                  onClick={() => removeCommonPhrase(meaningIndex, phraseIndex)}
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-red-500 hover:text-red-700"
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
 
-          {/* Categories */}
-          <div>
-            <Label className="text-lg font-semibold">Categories</Label>
-            <div className="mb-2 flex gap-2">
-              <Input
-                value={newCategory}
-                onChange={(e) => setNewCategory(e.target.value)}
-                placeholder="Add or search categories"
-                onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addCategory())}
-                list="category-suggestions"
-              />
-              <datalist id="category-suggestions">
-                {categories
-                  .filter(
-                    (cat) =>
-                      cat.name.toLowerCase().includes(newCategory.toLowerCase()) &&
-                      !formData.categories?.includes(cat.name)
-                  )
-                  .map((cat) => (
-                    <option key={cat._id} value={cat.name} />
-                  ))}
-              </datalist>
-              <Button type="button" onClick={addCategory} variant="outline">
-                Add
-              </Button>
-            </div>
-
-            {/* Available category suggestions */}
-            {newCategory.length > 0 && (
-              <div className="mb-3">
-                <p className="mb-2 text-sm text-gray-600">Suggestions:</p>
-                <div className="flex flex-wrap gap-2">
-                  {categories
-                    .filter(
-                      (cat) =>
-                        cat.name.toLowerCase().includes(newCategory.toLowerCase()) &&
-                        !formData.categories?.includes(cat.name)
-                    )
-                    .slice(0, 5)
-                    .map((cat) => (
-                      <Button
-                        key={cat._id}
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          if (!formData.categories?.includes(cat.name)) {
-                            setFormData({
-                              ...formData,
-                              categories: [...(formData.categories || []), cat.name]
-                            });
-                            setNewCategory("");
-                          }
-                        }}
-                        className="text-xs"
-                      >
-                        + {cat.name}
-                        {cat.vocabularyCount !== undefined && (
-                          <span className="ml-1 text-gray-500">({cat.vocabularyCount})</span>
-                        )}
-                      </Button>
-                    ))}
-                </div>
-              </div>
-            )}
-
-            {/* Selected categories */}
-            <div className="flex flex-wrap gap-2">
-              {(formData.categories || []).map((category) => (
-                <span
-                  key={category}
-                  className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-3 py-1 text-sm text-blue-800"
-                >
-                  #{category}
-                  <Button
-                    type="button"
-                    onClick={() => removeCategory(category)}
-                    variant="ghost"
-                    size="sm"
-                    className="h-4 w-4 p-0 text-blue-600 hover:text-blue-800"
-                  >
-                    <X className="h-3 w-3" />
+              {/* Categories */}
+              <div>
+                <Label className="text-lg font-semibold">Categories</Label>
+                <div className="mb-2 flex gap-2">
+                  <Input
+                    value={newCategory}
+                    onChange={(e) => setNewCategory(e.target.value)}
+                    placeholder="Add or search categories"
+                    onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addCategory())}
+                    list="category-suggestions"
+                  />
+                  <datalist id="category-suggestions">
+                    {categories
+                      .filter(
+                        (cat) =>
+                          cat.name.toLowerCase().includes(newCategory.toLowerCase()) &&
+                          !formData.categories?.includes(cat.name)
+                      )
+                      .map((cat) => (
+                        <option key={cat._id} value={cat.name} />
+                      ))}
+                  </datalist>
+                  <Button type="button" onClick={addCategory} variant="outline">
+                    Add
                   </Button>
-                </span>
-              ))}
-            </div>
+                </div>
 
-            {/* Your categories section */}
-            {categories.length > 0 && (
-              <div className="mt-3">
-                <p className="mb-2 text-sm text-gray-600">Your categories:</p>
+                {/* Available category suggestions */}
+                {newCategory.length > 0 && (
+                  <div className="mb-3">
+                    <p className="mb-2 text-sm text-gray-600">Suggestions:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {categories
+                        .filter(
+                          (cat) =>
+                            cat.name.toLowerCase().includes(newCategory.toLowerCase()) &&
+                            !formData.categories?.includes(cat.name)
+                        )
+                        .slice(0, 5)
+                        .map((cat) => (
+                          <Button
+                            key={cat._id}
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              if (!formData.categories?.includes(cat.name)) {
+                                setFormData({
+                                  ...formData,
+                                  categories: [...(formData.categories || []), cat.name]
+                                });
+                                setNewCategory("");
+                              }
+                            }}
+                            className="text-xs"
+                          >
+                            + {cat.name}
+                            {cat.vocabularyCount !== undefined && (
+                              <span className="ml-1 text-gray-500">({cat.vocabularyCount})</span>
+                            )}
+                          </Button>
+                        ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Selected categories */}
                 <div className="flex flex-wrap gap-2">
-                  {categories
-                    .filter((cat) => !formData.categories?.includes(cat.name))
-                    .sort((a, b) => (b.vocabularyCount || 0) - (a.vocabularyCount || 0))
-                    .slice(0, 8)
-                    .map((cat) => (
+                  {(formData.categories || []).map((category) => (
+                    <span
+                      key={category}
+                      className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-3 py-1 text-sm text-blue-800"
+                    >
+                      #{category}
                       <Button
-                        key={cat._id}
                         type="button"
+                        onClick={() => removeCategory(category)}
                         variant="ghost"
                         size="sm"
-                        onClick={() => {
-                          setFormData({
-                            ...formData,
-                            categories: [...(formData.categories || []), cat.name]
-                          });
-                        }}
-                        className="text-xs text-gray-600 hover:text-blue-600"
+                        className="h-4 w-4 p-0 text-blue-600 hover:text-blue-800"
                       >
-                        {cat.name}
-                        {cat.vocabularyCount !== undefined && <span className="ml-1">({cat.vocabularyCount})</span>}
+                        <X className="h-3 w-3" />
                       </Button>
-                    ))}
+                    </span>
+                  ))}
                 </div>
-              </div>
-            )}
-          </div>
 
-          {/* Form Actions */}
-          <div className="flex gap-4 pt-4">
-            <Button type="submit" disabled={isLoading} className="flex-1">
-              {isLoading
-                ? mode === "edit"
-                  ? "Updating..."
-                  : "Adding..."
-                : mode === "edit"
-                  ? "Update Vocabulary"
-                  : "Add Vocabulary"}
-            </Button>
-            <Button type="button" onClick={onCancel} variant="outline" className="flex-1">
-              Cancel
-            </Button>
-          </div>
-        </form>
+                {/* Your categories section */}
+                {categories.length > 0 && (
+                  <div className="mt-3">
+                    <p className="mb-2 text-sm text-gray-600">Your categories:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {categories
+                        .filter((cat) => !formData.categories?.includes(cat.name))
+                        .sort((a, b) => (b.vocabularyCount || 0) - (a.vocabularyCount || 0))
+                        .slice(0, 8)
+                        .map((cat) => (
+                          <Button
+                            key={cat._id}
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setFormData({
+                                ...formData,
+                                categories: [...(formData.categories || []), cat.name]
+                              });
+                            }}
+                            className="text-xs text-gray-600 hover:text-blue-600"
+                          >
+                            {cat.name}
+                            {cat.vocabularyCount !== undefined && <span className="ml-1">({cat.vocabularyCount})</span>}
+                          </Button>
+                        ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Form Actions */}
+              <div className="flex gap-4 pt-4">
+                <Button type="submit" disabled={isLoading} className="flex-1">
+                  {isLoading
+                    ? mode === "edit"
+                      ? "Updating..."
+                      : "Adding..."
+                    : mode === "edit"
+                      ? "Update Vocabulary"
+                      : "Add Vocabulary"}
+                </Button>
+                <Button type="button" onClick={onCancel} variant="outline" className="flex-1">
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          </TabsContent>
+        </Tabs>
       </CardContent>
     </Card>
   );
