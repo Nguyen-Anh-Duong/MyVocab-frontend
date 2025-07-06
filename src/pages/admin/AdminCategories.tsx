@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import adminService from "@/services/adminService";
 import { AlertCircle, Edit, Eye, FileText, Plus, Trash2 } from "lucide-react";
+import CategoryDetailModal from "@/components/CategoryDetailModal";
+import CategoryEditModal from "@/components/CategoryEditModal";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -10,6 +12,11 @@ export default function AdminCategories() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+
+  // Modal states
+  const [viewModalOpen, setViewModalOpen] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -39,6 +46,30 @@ export default function AdminCategories() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Modal handlers
+  const handleViewCategory = (categoryId: string) => {
+    setSelectedCategoryId(categoryId);
+    setViewModalOpen(true);
+  };
+
+  const handleEditCategory = (categoryId: string) => {
+    setSelectedCategoryId(categoryId);
+    setEditModalOpen(true);
+  };
+
+  const handleCloseModals = () => {
+    setViewModalOpen(false);
+    setEditModalOpen(false);
+    setSelectedCategoryId(null);
+  };
+
+  const handleCategoryUpdated = (updatedCategory: any) => {
+    // Update category in local state
+    setCategories((prev) =>
+      prev.map((cat) => ((cat.id || cat._id) === (updatedCategory.id || updatedCategory._id) ? updatedCategory : cat))
+    );
   };
 
   const handleDeleteCategory = async (categoryId: string) => {
@@ -250,10 +281,20 @@ export default function AdminCategories() {
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <Button variant="ghost" size="sm" title="View Details">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      title="View Details"
+                      onClick={() => handleViewCategory(category.id || category._id)}
+                    >
                       <Eye className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="sm" title="Edit Category">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      title="Edit Category"
+                      onClick={() => handleEditCategory(category.id || category._id)}
+                    >
                       <Edit className="h-4 w-4" />
                     </Button>
                     <Button
@@ -277,6 +318,21 @@ export default function AdminCategories() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Modals */}
+      <CategoryDetailModal
+        categoryId={selectedCategoryId}
+        isOpen={viewModalOpen}
+        onClose={handleCloseModals}
+        onEdit={handleEditCategory}
+      />
+
+      <CategoryEditModal
+        categoryId={selectedCategoryId}
+        isOpen={editModalOpen}
+        onClose={handleCloseModals}
+        onSave={handleCategoryUpdated}
+      />
     </div>
   );
 }

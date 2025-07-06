@@ -226,6 +226,50 @@ class AdminService {
     }
   }
 
+  // Get category details
+  async getCategoryById(categoryId: string): Promise<AdminCategory> {
+    try {
+      console.log("Getting category details:", categoryId);
+      const response = await httpClient.get(`${API_CONFIG.ENDPOINTS.CATEGORIES}/${categoryId}`);
+
+      console.log("Category details response:", response);
+
+      // Handle response format: { message: "Get category successfully", data: { ... } }
+      if (response.data?.data) {
+        return response.data.data;
+      } else if (response.data?.category) {
+        return response.data.category;
+      } else {
+        return response.data;
+      }
+    } catch (error: any) {
+      console.error("Failed to get category details:", error);
+      throw new Error(error.response?.data?.message || "Failed to get category details");
+    }
+  }
+
+  // Update category
+  async updateCategory(categoryId: string, categoryData: Partial<AdminCategory>): Promise<AdminCategory> {
+    try {
+      console.log("Updating category:", { categoryId, categoryData });
+      const response = await httpClient.patch(`${API_CONFIG.ENDPOINTS.CATEGORIES}/${categoryId}`, categoryData);
+
+      console.log("Update category response:", response);
+
+      // Handle response format: { message: "Update category successfully", data: { ... } }
+      if (response.data?.data) {
+        return response.data.data;
+      } else if (response.data?.category) {
+        return response.data.category;
+      } else {
+        return response.data;
+      }
+    } catch (error: any) {
+      console.error("Failed to update category:", error);
+      throw new Error(error.response?.data?.message || "Failed to update category");
+    }
+  }
+
   // Dashboard Stats
   async getDashboardStats(): Promise<AdminStats> {
     try {
