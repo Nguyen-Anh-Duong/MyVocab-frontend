@@ -1,6 +1,5 @@
 import { API_CONFIG } from "@/config/api";
 import type {
-  ApiResponse,
   AuthResponse,
   LoginRequest,
   RefreshTokenResponse,

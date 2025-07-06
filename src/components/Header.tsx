@@ -1,4 +1,5 @@
-import { Book, LogOut, Moon, Plus, Search, User } from "lucide-react";
+import { UserRole } from "@/types/auth";
+import { Book, LogOut, Moon, Plus, Search, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -51,6 +52,16 @@ export default function Header() {
                 <p>Categories</p>
               </Button>
             </a>
+
+            {/* Admin Link - Only show for admin users */}
+            {user?.role === UserRole.ADMIN && (
+              <a href="/admin">
+                <Button variant="ghost" className="flex cursor-pointer items-center justify-center gap-3">
+                  <Settings />
+                  <p>Admin</p>
+                </Button>
+              </a>
+            )}
 
             {/* User Info & Logout */}
             <div className="flex items-center gap-3 border-l border-gray-200 pl-3">

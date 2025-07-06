@@ -16,10 +16,16 @@ export interface AuthResponse {
   user: User;
 }
 
+export enum UserRole {
+  USER = "user",
+  ADMIN = "admin"
+}
+
 export interface User {
   id: string;
   email: string;
   username: string;
+  role?: UserRole;
   isEmailVerified: boolean;
   createdAt: string;
   updatedAt: string;
