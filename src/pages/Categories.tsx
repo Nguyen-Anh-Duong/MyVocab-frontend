@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { Category, CreateCategoryRequest, UpdateCategoryRequest } from "@/types/category";
 import type { Vocabulary } from "@/types/vocabulary";
 import { Book, Edit, Eye, Plus, Search, Trash2, TrendingUp, Volume2 } from "lucide-react";
+import VocabularyForm from "@/components/VocabularyForm";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -134,6 +135,8 @@ export default function Categories() {
     isLoading: vocabLoading,
     error: vocabError,
     getVocabulariesByCategory,
+    createVocabulary,
+    updateVocabulary,
     clearError: clearVocabError
   } = useVocabulary();
 
@@ -143,6 +146,19 @@ export default function Categories() {
   const [showStats, setShowStats] = useState(false);
   const [viewingCategory, setViewingCategory] = useState<Category | null>(null);
   const [showVocabulariesDialog, setShowVocabulariesDialog] = useState(false);
+  const [showAddVocabDialog, setShowAddVocabDialog] = useState(false);
+  const [editingVocabulary, setEditingVocabulary] = useState<Vocabulary | null>(null);
+
+  // Listen for Add Word event from header
+  useEffect(() => {
+    const handleAddWord = () => {
+      setEditingVocabulary(null);
+      setShowAddVocabDialog(true);
+    };
+
+    window.addEventListener("openAddVocabulary", handleAddWord);
+    return () => window.removeEventListener("openAddVocabulary", handleAddWord);
+  }, []);
 
   // Load categories and stats on mount
   useEffect(() => {
@@ -221,6 +237,52 @@ export default function Categories() {
       const audio = new Audio(audioUrl);
       audio.play().catch(console.error);
     }
+  };
+
+  const handleAddVocabulary = async (vocabularyData: any) => {
+    try {
+      await createVocabulary(vocabularyData);
+      setShowAddVocabDialog(false);
+      setEditingVocabulary(null);
+
+      // Refresh categories to update vocabulary counts
+      await fetchCategories();
+    } catch (error) {
+      console.error("Failed to add vocabulary:", error);
+    }
+  };
+
+  const handleEditVocabulary = async (vocabularyData: any) => {
+    if (!editingVocabulary) return;
+
+    try {
+      await updateVocabulary(editingVocabulary._id, vocabularyData);
+      setShowAddVocabDialog(false);
+      setEditingVocabulary(null);
+
+      // Refresh the vocabularies list for current viewing category
+      if (viewingCategory) {
+        await getVocabulariesByCategory(viewingCategory._id);
+      }
+
+      // Refresh categories to update vocabulary counts
+      await fetchCategories();
+    } catch (error) {
+      console.error("Failed to update vocabulary:", error);
+    }
+  };
+
+  const handleFormSubmit = async (vocabularyData: any) => {
+    if (editingVocabulary) {
+      await handleEditVocabulary(vocabularyData);
+    } else {
+      await handleAddVocabulary(vocabularyData);
+    }
+  };
+
+  const handleFormCancel = () => {
+    setShowAddVocabDialog(false);
+    setEditingVocabulary(null);
   };
 
   return (
@@ -463,6 +525,18 @@ export default function Categories() {
                           </Button>
                         )}
                       </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setEditingVocabulary(vocabulary);
+                          setShowAddVocabDialog(true);
+                        }}
+                        className="flex items-center gap-2"
+                      >
+                        <Edit className="h-4 w-4" />
+                        Edit
+                      </Button>
                     </div>
                     {vocabulary.phonetic?.text && (
                       <p className="font-mono text-gray-600">/{vocabulary.phonetic.text}/</p>
@@ -512,6 +586,24 @@ export default function Categories() {
               <p className="text-gray-600">This category doesn't have any vocabulary words yet.</p>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Add/Edit Vocabulary Dialog */}
+      <Dialog open={showAddVocabDialog} onOpenChange={setShowAddVocabDialog}>
+        <DialogContent className="max-h-[90vh] max-w-6xl overflow-y-auto">
+          <DialogTitle>{editingVocabulary ? "Edit Vocabulary" : "Add New Vocabulary"}</DialogTitle>
+          <DialogDescription>
+            {editingVocabulary ? "Edit the details of the vocabulary" : "Enter the details of the new vocabulary"}
+          </DialogDescription>
+          <VocabularyForm
+            onSubmit={handleFormSubmit}
+            onCancel={handleFormCancel}
+            isLoading={vocabLoading}
+            initialData={editingVocabulary || undefined}
+            mode={editingVocabulary ? "edit" : "add"}
+            hideTitle={true}
+          />
         </DialogContent>
       </Dialog>
     </div>

@@ -103,6 +103,59 @@ class AuthService {
     }
   }
 
+  async initiateGoogleAuth(): Promise<string> {
+    try {
+      console.log("Calling Google OAuth API:", `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.AUTH.GOOGLE}`);
+
+      const response = await httpClient.get(API_CONFIG.ENDPOINTS.AUTH.GOOGLE);
+
+      console.log("Google OAuth API response:", response);
+
+      // Check if response has the expected structure
+      if (!response) {
+        throw new Error("No response received");
+      }
+
+      // Backend returns URL directly in response, not nested under data
+      if (response.url) {
+        return response.url;
+      }
+
+      // Also check for nested data format in case backend changes
+      if (response.data?.url) {
+        return response.data.url;
+      }
+
+      console.log("Response data:", response);
+      throw new Error("No URL found in response");
+    } catch (error: any) {
+      console.error("Google OAuth API error:", error);
+
+      if (error.response) {
+        console.error("Error response status:", error.response.status);
+        console.error("Error response data:", error.response.data);
+
+        // More specific error messages
+        if (error.response.status === 404) {
+          throw new Error("Google OAuth endpoint not found. Please check if backend is running and endpoint exists.");
+        }
+        if (error.response.status === 500) {
+          throw new Error("Server error when initiating Google OAuth. Please try again later.");
+        }
+
+        throw new Error(
+          error.response?.data?.message || `HTTP ${error.response.status}: Failed to initiate Google authentication`
+        );
+      }
+
+      if (error.request) {
+        throw new Error("Network error: Cannot connect to backend. Please check if backend is running.");
+      }
+
+      throw new Error(error.message || "Unknown error occurred during Google OAuth initiation");
+    }
+  }
+
   // Helper methods
   clearAuthData(): void {
     localStorage.removeItem("accessToken");

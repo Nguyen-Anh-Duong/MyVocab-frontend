@@ -6,9 +6,14 @@ export const API_CONFIG = {
       LOGIN: "/auth/login",
       LOGOUT: "/auth/logout",
       REFRESH_TOKEN: "/auth/refresh-token",
-      VERIFY_EMAIL: "/auth/verify-email"
+      VERIFY_EMAIL: "/auth/verify-email",
+      GOOGLE: "/auth/google",
+      ME: "/auth/me"
     },
-    USERS: "/users",
+    USERS: {
+      BASE: "/users",
+      ME: "/users/me"
+    },
     VOCABULARIES: "/vocabularies",
     CATEGORIES: "/categories"
   }
